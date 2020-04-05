@@ -1,0 +1,22 @@
+<nav class="navbar navbar-dark bg-dark py-0">
+  <a class="navbar-brand" href="#">Navbar</a>
+  <ul class="navbar-nav">
+
+    <li [routerLinkActive]='["link-active"]'>
+      <a *ngIf="auth.isAuthenticated()" (click)="auth.logout()" style="cursor: pointer;">
+        <span class='glyphicon glyphicon-log-out'></span> Log Out
+      </a>
+    </li>
+    <li [routerLinkActive]='["link-active"]'>
+      <a *ngIf="!auth.isAuthenticated()" (click)="auth.login()" style="cursor: pointer;">
+        <span class='glyphicon glyphicon-log-in'></span> Log In
+      </a>
+    </li>
+  </ul>
+</nav>
+<div class="py-3 px-2">
+  <button class="btn btn-primary m-2" (click)="public()">Call public</button>
+  <button class="btn btn-info m-2" (click)="private()">Call private</button>
+
+  <p>{{ message }}</p>
+</div>
