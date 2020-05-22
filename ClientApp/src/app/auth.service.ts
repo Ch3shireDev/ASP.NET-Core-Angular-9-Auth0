@@ -2,36 +2,47 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, Observer } from 'rxjs';
 import * as auth0 from 'auth0-js';
+import { timer } from 'rxjs';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+
+import { map, filter, mergeMap } from 'rxjs/operators';
+
+let timer$ = timer(2000, 1000);
 
 (window as any).global = window;
 
+interface Array<T> {
+  flat(): Array<T>;
+  flatMap(func: (x: T) => T): Array<T>;
+}
+
 const AUTH_CONFIG = {
-  clientID: 'WlQO27ycF1JOW69gs6RobcdNUffCFBtC',
+  clientID: '2MaeLTtuDycmYesqEF61IcWFma3IDEqZ',
   domain: 'dev-f8t1k7iq.auth0.com',
   callbackURL: 'http://localhost:4200',
-  apiUrl: 'https://localhost:5001'
+  apiUrl: 'https://localhost:5001',
 };
 
 @Injectable()
 export class AuthService {
-
   auth0 = new auth0.WebAuth({
     clientID: AUTH_CONFIG.clientID,
     domain: AUTH_CONFIG.domain,
     responseType: 'token id_token',
     audience: AUTH_CONFIG.apiUrl,
     redirectUri: AUTH_CONFIG.callbackURL,
-    scope: 'openid profile email read:messages'
+    scope: 'openid profile email read:messages',
   });
 
   userProfile: any;
   refreshSubscription: any;
   observer: Observer<boolean>;
   ssoAuthComplete$: Observable<boolean> = new Observable(
-    obs => (this.observer = obs)
+    (obs) => (this.observer = obs)
   );
 
-  constructor(public router: Router) { }
+  constructor(public router: Router) {}
 
   public login(): void {
     this.auth0.authorize();
@@ -66,7 +77,9 @@ export class AuthService {
 
   private setSession(authResult): void {
     // Set the time that the access token will expire at
-    const expiresAt = JSON.stringify((authResult.expiresIn * 1000) + new Date().getTime());
+    const expiresAt = JSON.stringify(
+      authResult.expiresIn * 1000 + new Date().getTime()
+    );
     localStorage.setItem('access_token', authResult.accessToken);
     localStorage.setItem('id_token', authResult.idToken);
     localStorage.setItem('expires_at', expiresAt);
@@ -88,36 +101,37 @@ export class AuthService {
     return new Date().getTime() < expiresAt;
   }
 
-
   public renewToken() {
-    this.auth0.checkSession({},
-      (err, result) => {
-        if (err) {
-          alert(
-            `Could not get a new token (${err.error}: ${err.error_description}).`
-          );
-          this.login();
-        } else {
-          this.setSession(result);
-          this.observer.next(true);
-        }
+    this.auth0.checkSession({}, (err, result) => {
+      if (err) {
+        alert(
+          `Could not get a new token (${err.error}: ${err.error_description}).`
+        );
+        this.login();
+      } else {
+        this.setSession(result);
+        this.observer.next(true);
       }
-    );
+    });
   }
 
   public scheduleRenewal() {
-    if (!this.isAuthenticated()) { return; }
+    if (!this.isAuthenticated()) {
+      return;
+    }
     this.unscheduleRenewal();
 
     const expiresAt = JSON.parse(window.localStorage.getItem('expires_at'));
 
-    const source = Observable.of(expiresAt).flatMap(expiresAt => {
-      const now = Date.now();
+    const source = of(expiresAt).pipe(
+      mergeMap((expiresAt) => {
+        const now = Date.now();
 
-      // Use the delay in a timer to
-      // run the refresh at the proper time
-      return Observable.timer(Math.max(1, expiresAt - now));
-    });
+        // Use the delay in a timer to
+        // run the refresh at the proper time
+        return timer(Math.max(1, expiresAt - now));
+      })
+    );
 
     // Once the delay time from above is
     // reached, get a new JWT and schedule
@@ -129,9 +143,9 @@ export class AuthService {
   }
 
   public unscheduleRenewal() {
-    if (!this.refreshSubscription) { return; }
+    if (!this.refreshSubscription) {
+      return;
+    }
     this.refreshSubscription.unsubscribe();
   }
-
 }
-
